@@ -10,7 +10,7 @@ linkFarm "zig-packages" [
   {
     name = "riff_zig-1.0.0-J7H0A7E6TAAFStkejtsMRsIhfgLMLzf5iYxWgeSFBLJu";
     path = fetchzip {
-      url = "https://codeload.github.com/haruki7049/RIFF.zig/tar.gz/refs/tags/1.0.0";
+      url = "https://github.com/haruki7049/RIFF.zig/archive/refs/tags/1.0.0.tar.gz";
       hash = "sha256-ELlLnVXNOfI44m9EbnKAsaWMjDKEAP1i0VnIdv1Tq14=";
     };
   }
