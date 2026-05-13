@@ -15,6 +15,10 @@ pub const VersionTag = struct {
 
     /// right of the decimal point
     minor: u16,
+
+    pub fn create(major: u16, minor: u16) VersionTag {
+        return .{ .major = major, .minor = minor };
+    }
 };
 
 pub const PresetHeader = struct {
