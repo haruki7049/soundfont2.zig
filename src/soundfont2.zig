@@ -70,7 +70,7 @@ fn parse_riff_chunk(allocator: std.mem.Allocator, chunk: riff.Chunk) !Self {
                         info = try parse_list_info_chunks(list_chunk.chunks);
                     },
                     sdta_four_cc => {
-                        sdta = try parse_list_sdta_chunks(allocator, list_chunk.chunks);
+                        sdta = try parse_list_sdta_chunks(list_chunk.chunks);
                     },
                     pdta_four_cc => {
                         pdta = try parse_list_pdta_chunks(allocator, list_chunk.chunks);
@@ -132,8 +132,62 @@ fn trim_end_zero(target: *[]u8, data: []const u8) void {
     target = v;
 }
 
-fn parse_list_sdta_chunks(allocator: std.mem.Allocator, chunks: []const riff.Chunk) !Samples {}
+fn parse_list_sdta_chunks(chunks: []const riff.Chunk) !Samples {
+    if (chunks.len != 1)
+        return error.InvalidChunksSize;
 
-fn parse_list_pdta_chunks(allocator: std.mem.Allocator, chunks: []const riff.Chunk) !PresetData {}
+    switch (chunks[0]) {
+        .list || .riff => @panic("Unexpected chunk instead of normal chunk"),
+        .chunk => |chunk| {
+            const smpl_four_cc = try riff.FourCC.new("smpl");
+
+            if (chunk.four_cc == smpl_four_cc) {
+                // Zero-copy cast (Requires @alignOf(u16) alignment and native endianness)
+                const samples = std.mem.bytesAsSlice(u16, @alignCast(chunk.data));
+                return samples;
+            } else {
+                @panic("Unexpected FourCC instead of \"smpl\"");
+            }
+        },
+    }
+}
+
+fn parse_list_pdta_chunks(allocator: std.mem.Allocator, chunks: []const riff.Chunk) !PresetData {
+    if (chunks.len != 9)
+        return error.InvalidChunksSize;
+
+    var result: PresetData = undefined;
+
+    for (chunks) |chunk| {
+        switch (chunk) {
+            .list || .riff => @panic("Unexpected chunk instead of normal chunk"),
+            .chunk => |c| {
+                const phdr_four_cc = try riff.FourCC.new("phdr");
+                const pbag_four_cc = try riff.FourCC.new("pbag");
+                const pmod_four_cc = try riff.FourCC.new("pmod");
+                const pgen_four_cc = try riff.FourCC.new("pgen");
+                const inst_four_cc = try riff.FourCC.new("inst");
+                const ibag_four_cc = try riff.FourCC.new("ibag");
+                const imod_four_cc = try riff.FourCC.new("imod");
+                const igen_four_cc = try riff.FourCC.new("igen");
+                const shdr_four_cc = try riff.FourCC.new("shdr");
+
+                switch (chunk.four_cc) {
+                    phdr_four_cc => try pack_presetdata_into(&result, chunk.data),
+                    pbag_four_cc => trim_end_zero(&result.inam, chunk.data),
+                    pmod_four_cc => trim_end_zero(&result.isng, chunk.data),
+                    pgen_four_cc => trim_end_zero(&result.iprd, chunk.data),
+                    inst_four_cc => trim_end_zero(&result.isft, chunk.data),
+                    ibag_four_cc => trim_end_zero(&result.icop, chunk.data),
+                    imod_four_cc => trim_end_zero(&result.icop, chunk.data),
+                    igen_four_cc => trim_end_zero(&result.icrd, chunk.data),
+                    shdr_four_cc => trim_end_zero(&result.ieng, chunk.data),
+                }
+            },
+        }
+    }
+
+    return result;
+}
 
 // pub fn deinit(self: Self, allocator: std.mem.Allocator) void {}
