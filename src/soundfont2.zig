@@ -172,16 +172,16 @@ fn parse_list_pdta_chunks(allocator: std.mem.Allocator, chunks: []const riff.Chu
                 const igen_four_cc = try riff.FourCC.new("igen");
                 const shdr_four_cc = try riff.FourCC.new("shdr");
 
-                switch (chunk.four_cc) {
-                    phdr_four_cc => try pack_presetdata_into(&result, chunk.data),
-                    pbag_four_cc => trim_end_zero(&result.inam, chunk.data),
-                    pmod_four_cc => trim_end_zero(&result.isng, chunk.data),
-                    pgen_four_cc => trim_end_zero(&result.iprd, chunk.data),
-                    inst_four_cc => trim_end_zero(&result.isft, chunk.data),
-                    ibag_four_cc => trim_end_zero(&result.icop, chunk.data),
-                    imod_four_cc => trim_end_zero(&result.icop, chunk.data),
-                    igen_four_cc => trim_end_zero(&result.icrd, chunk.data),
-                    shdr_four_cc => trim_end_zero(&result.ieng, chunk.data),
+                switch (c.four_cc) {
+                    phdr_four_cc => try pack_presetdata_into(&result, c.data),
+                    pbag_four_cc => trim_end_zero(&result.inam, c.data),
+                    pmod_four_cc => trim_end_zero(&result.isng, c.data),
+                    pgen_four_cc => trim_end_zero(&result.iprd, c.data),
+                    inst_four_cc => trim_end_zero(&result.isft, c.data),
+                    ibag_four_cc => trim_end_zero(&result.icop, c.data),
+                    imod_four_cc => trim_end_zero(&result.icop, c.data),
+                    igen_four_cc => trim_end_zero(&result.icrd, c.data),
+                    shdr_four_cc => trim_end_zero(&result.ieng, c.data),
                 }
             },
         }
