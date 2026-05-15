@@ -52,7 +52,7 @@ pub fn create(allocator: std.mem.Allocator, reader: anytype) anyerror!Self {
     return result;
 }
 
-fn parse_riff_chunk(allocator: std.mem.Allocator, chunk: riff.Chunk) !Self {
+fn parse_riff_chunk(chunk: riff.Chunk) !Self {
     var info: Info = undefined;
     var sdta: []const u16 = undefined;
     var pdta: PresetData = undefined;
@@ -73,7 +73,7 @@ fn parse_riff_chunk(allocator: std.mem.Allocator, chunk: riff.Chunk) !Self {
                         sdta = try parse_list_sdta_chunks(list_chunk.chunks);
                     },
                     pdta_four_cc => {
-                        pdta = try parse_list_pdta_chunks(allocator, list_chunk.chunks);
+                        pdta = try parse_list_pdta_chunks(list_chunk.chunks);
                     },
                     else => @panic("Unexpected FourCC instead of INFO, sdta and pdta"),
                 }
@@ -152,7 +152,7 @@ fn parse_list_sdta_chunks(chunks: []const riff.Chunk) !Samples {
     }
 }
 
-fn parse_list_pdta_chunks(allocator: std.mem.Allocator, chunks: []const riff.Chunk) !PresetData {
+fn parse_list_pdta_chunks(chunks: []const riff.Chunk) !PresetData {
     if (chunks.len != 9)
         return error.InvalidChunksSize;
 
@@ -188,6 +188,15 @@ fn parse_list_pdta_chunks(allocator: std.mem.Allocator, chunks: []const riff.Chu
     }
 
     return result;
+}
+
+fn pack_presetdata_into(result: *PresetData, data: []const u8) !void {
+    // Check if data has at least 20 bytes for the preset name
+    if (data.len < 20) return error.InvalidLength;
+
+    const name = std.mem.sliceTo(data[0..20], 0);
+    const preset_name = try Types.PresetName.create(name);
+    result.phdr = Types.PresetHeader.create(preset_name);
 }
 
 // pub fn deinit(self: Self, allocator: std.mem.Allocator) void {}
