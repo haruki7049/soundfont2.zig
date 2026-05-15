@@ -46,8 +46,8 @@ pub fn create(allocator: std.mem.Allocator, reader: anytype) anyerror!Self {
     defer chunk.deinit(allocator);
 
     const result = switch (chunk) {
-        .chunk || .list => @panic("Unexpected chunk instead of RIFF chunk"),
-        .riff => try parse_riff_chunk(allocator, chunk),
+        .chunk, .list => @panic("Unexpected chunk instead of RIFF chunk"),
+        .riff => try parse_riff_chunk(chunk),
     };
     return result;
 }
@@ -59,20 +59,20 @@ fn parse_riff_chunk(chunk: riff.Chunk) !Self {
 
     for (chunk.riff.chunks) |c| {
         switch (c) {
-            .chunk || .riff => @panic("Unexpected chunk instead of LIST chunk"),
+            .chunk, .riff => @panic("Unexpected chunk instead of LIST chunk"),
             .list => |list_chunk| {
                 const info_four_cc = try riff.FourCC.new("INFO");
                 const sdta_four_cc = try riff.FourCC.new("sdta");
                 const pdta_four_cc = try riff.FourCC.new("pdta");
 
                 switch (list_chunk.four_cc) {
-                    info_four_cc => {
+                    inline info_four_cc => {
                         info = try parse_list_info_chunks(list_chunk.chunks);
                     },
-                    sdta_four_cc => {
+                    inline sdta_four_cc => {
                         sdta = try parse_list_sdta_chunks(list_chunk.chunks);
                     },
-                    pdta_four_cc => {
+                    inline pdta_four_cc => {
                         pdta = try parse_list_pdta_chunks(list_chunk.chunks);
                     },
                     else => @panic("Unexpected FourCC instead of INFO, sdta and pdta"),
@@ -87,7 +87,7 @@ fn parse_list_info_chunks(chunks: []const riff.Chunk) !Info {
 
     for (chunks) |c| {
         switch (c) {
-            .list || .riff => @panic("Unexpected chunk instead of normal chunk"),
+            .list, .riff => @panic("Unexpected chunk instead of normal chunk"),
             .chunk => |chunk| {
                 const ifil_four_cc = try riff.FourCC.new("ifil");
                 const inam_four_cc = try riff.FourCC.new("INAM");
@@ -100,15 +100,15 @@ fn parse_list_info_chunks(chunks: []const riff.Chunk) !Info {
                 const icmt_four_cc = try riff.FourCC.new("ICMT");
 
                 switch (chunk.four_cc) {
-                    ifil_four_cc => try parse_ifil(&result, chunk.data),
-                    inam_four_cc => trim_end_zero(&result.inam, chunk.data),
-                    isng_four_cc => trim_end_zero(&result.isng, chunk.data),
-                    iprd_four_cc => trim_end_zero(&result.iprd, chunk.data),
-                    isft_four_cc => trim_end_zero(&result.isft, chunk.data),
-                    icop_four_cc => trim_end_zero(&result.icop, chunk.data),
-                    icrd_four_cc => trim_end_zero(&result.icrd, chunk.data),
-                    ieng_four_cc => trim_end_zero(&result.ieng, chunk.data),
-                    icmt_four_cc => trim_end_zero(&result.icmt, chunk.data),
+                    inline ifil_four_cc => try parse_ifil(&result, chunk.data),
+                    inline inam_four_cc => trim_end_zero(&result.inam, chunk.data),
+                    inline isng_four_cc => trim_end_zero(&result.isng, chunk.data),
+                    inline iprd_four_cc => trim_end_zero(&result.iprd, chunk.data),
+                    inline isft_four_cc => trim_end_zero(&result.isft, chunk.data),
+                    inline icop_four_cc => trim_end_zero(&result.icop, chunk.data),
+                    inline icrd_four_cc => trim_end_zero(&result.icrd, chunk.data),
+                    inline ieng_four_cc => trim_end_zero(&result.ieng, chunk.data),
+                    inline icmt_four_cc => trim_end_zero(&result.icmt, chunk.data),
                 }
             },
         }
@@ -137,7 +137,7 @@ fn parse_list_sdta_chunks(chunks: []const riff.Chunk) !Samples {
         return error.InvalidChunksSize;
 
     switch (chunks[0]) {
-        .list || .riff => @panic("Unexpected chunk instead of normal chunk"),
+        .list, .riff => @panic("Unexpected chunk instead of normal chunk"),
         .chunk => |chunk| {
             const smpl_four_cc = try riff.FourCC.new("smpl");
 
@@ -160,7 +160,7 @@ fn parse_list_pdta_chunks(chunks: []const riff.Chunk) !PresetData {
 
     for (chunks) |chunk| {
         switch (chunk) {
-            .list || .riff => @panic("Unexpected chunk instead of normal chunk"),
+            .list, .riff => @panic("Unexpected chunk instead of normal chunk"),
             .chunk => |c| {
                 const phdr_four_cc = try riff.FourCC.new("phdr");
                 const pbag_four_cc = try riff.FourCC.new("pbag");
@@ -172,16 +172,26 @@ fn parse_list_pdta_chunks(chunks: []const riff.Chunk) !PresetData {
                 const igen_four_cc = try riff.FourCC.new("igen");
                 const shdr_four_cc = try riff.FourCC.new("shdr");
 
-                switch (c.four_cc) {
-                    phdr_four_cc => try pack_presetdata_into(&result, c.data),
-                    pbag_four_cc => trim_end_zero(&result.inam, c.data),
-                    pmod_four_cc => trim_end_zero(&result.isng, c.data),
-                    pgen_four_cc => trim_end_zero(&result.iprd, c.data),
-                    inst_four_cc => trim_end_zero(&result.isft, c.data),
-                    ibag_four_cc => trim_end_zero(&result.icop, c.data),
-                    imod_four_cc => trim_end_zero(&result.icop, c.data),
-                    igen_four_cc => trim_end_zero(&result.icrd, c.data),
-                    shdr_four_cc => trim_end_zero(&result.ieng, c.data),
+                if (phdr_four_cc == c.four_cc) {
+                    try pack_presetdata_into(&result, c.data);
+                } else if (pbag_four_cc == c.four_cc) {
+                    trim_end_zero(&result.inam, c.data);
+                } else if (pmod_four_cc == c.four_cc) {
+                    trim_end_zero(&result.isng, c.data);
+                } else if (pgen_four_cc == c.four_cc) {
+                    trim_end_zero(&result.iprd, c.data);
+                } else if (inst_four_cc == c.four_cc) {
+                    trim_end_zero(&result.isft, c.data);
+                } else if (ibag_four_cc == c.four_cc) {
+                    trim_end_zero(&result.icop, c.data);
+                } else if (imod_four_cc == c.four_cc) {
+                    trim_end_zero(&result.icop, c.data);
+                } else if (igen_four_cc == c.four_cc) {
+                    trim_end_zero(&result.icrd, c.data);
+                } else if (shdr_four_cc == c.four_cc) {
+                    trim_end_zero(&result.ieng, c.data);
+                } else {
+                    // Do nothing if there are no matching four_cc
                 }
             },
         }
@@ -199,4 +209,22 @@ fn pack_presetdata_into(result: *PresetData, data: []const u8) !void {
     result.phdr = Types.PresetHeader.create(preset_name);
 }
 
-// pub fn deinit(self: Self, allocator: std.mem.Allocator) void {}
+test "create SoundFont from assets/soundfont-files/FluidR3_GM2-2.sf2" {
+    const allocator = std.testing.allocator;
+
+    // Load test file
+    const chunk_filedata: []const u8 = @embedFile("./assets/soundfont-files/FluidR3_GM2-2.sf2");
+    var reader = std.Io.Reader.fixed(chunk_filedata);
+
+    // Parse SoundFont
+    const actual: Self = try create(allocator, &reader);
+    const expected: Self = Self{
+        .info = .{
+            .ifil = .{ .major = 2, .minor = 2 },
+            .inam = "Fluid R3 GM",
+            .isng = "E-mu 10K1",
+        },
+    };
+
+    try std.testing.expectEqualDeep(expected, actual);
+}
