@@ -61,25 +61,27 @@ fn parse_riff_chunk(chunk: riff.Chunk) !Self {
         switch (c) {
             .chunk, .riff => @panic("Unexpected chunk instead of LIST chunk"),
             .list => |list_chunk| {
-                const info_four_cc = try riff.FourCC.new("INFO");
-                const sdta_four_cc = try riff.FourCC.new("sdta");
-                const pdta_four_cc = try riff.FourCC.new("pdta");
+                const actual: []const u8 = &list_chunk.four_cc.inner;
 
-                switch (list_chunk.four_cc) {
-                    inline info_four_cc => {
-                        info = try parse_list_info_chunks(list_chunk.chunks);
-                    },
-                    inline sdta_four_cc => {
-                        sdta = try parse_list_sdta_chunks(list_chunk.chunks);
-                    },
-                    inline pdta_four_cc => {
-                        pdta = try parse_list_pdta_chunks(list_chunk.chunks);
-                    },
-                    else => @panic("Unexpected FourCC instead of INFO, sdta and pdta"),
+                if (std.mem.eql(u8, "INFO", actual)) {
+                    // info chunk
+                    info = try parse_list_info_chunks(list_chunk.chunks);
+                } else if (std.mem.eql(u8, "sdta", actual)) {
+                    // sdta chunk
+                    sdta = try parse_list_sdta_chunks(list_chunk.chunks);
+                } else if (std.mem.eql(u8, "pdta", actual)) {
+                    // pdta chunk
+                    pdta = try parse_list_pdta_chunks(list_chunk.chunks);
                 }
             },
         }
     }
+
+    return .{
+        .info = info,
+        .samples = sdta,
+        .presets = pdta,
+    };
 }
 
 fn parse_list_info_chunks(chunks: []const riff.Chunk) !Info {
@@ -89,26 +91,26 @@ fn parse_list_info_chunks(chunks: []const riff.Chunk) !Info {
         switch (c) {
             .list, .riff => @panic("Unexpected chunk instead of normal chunk"),
             .chunk => |chunk| {
-                const ifil_four_cc = try riff.FourCC.new("ifil");
-                const inam_four_cc = try riff.FourCC.new("INAM");
-                const isng_four_cc = try riff.FourCC.new("isng");
-                const iprd_four_cc = try riff.FourCC.new("IPRD");
-                const isft_four_cc = try riff.FourCC.new("ISFT");
-                const icop_four_cc = try riff.FourCC.new("ICOP");
-                const icrd_four_cc = try riff.FourCC.new("ICRD");
-                const ieng_four_cc = try riff.FourCC.new("IENG");
-                const icmt_four_cc = try riff.FourCC.new("ICMT");
+                const actual: []const u8 = &chunk.four_cc.inner;
 
-                switch (chunk.four_cc) {
-                    inline ifil_four_cc => try parse_ifil(&result, chunk.data),
-                    inline inam_four_cc => trim_end_zero(&result.inam, chunk.data),
-                    inline isng_four_cc => trim_end_zero(&result.isng, chunk.data),
-                    inline iprd_four_cc => trim_end_zero(&result.iprd, chunk.data),
-                    inline isft_four_cc => trim_end_zero(&result.isft, chunk.data),
-                    inline icop_four_cc => trim_end_zero(&result.icop, chunk.data),
-                    inline icrd_four_cc => trim_end_zero(&result.icrd, chunk.data),
-                    inline ieng_four_cc => trim_end_zero(&result.ieng, chunk.data),
-                    inline icmt_four_cc => trim_end_zero(&result.icmt, chunk.data),
+                if (std.mem.eql(u8, "ifil", actual)) {
+                    try parse_ifil(&result, chunk.data);
+                } else if (std.mem.eql(u8, "INAM", actual)) {
+                    trim_end_zero(&result, chunk.data, .inam);
+                } else if (std.mem.eql(u8, "isng", actual)) {
+                    trim_end_zero(&result, chunk.data, .isng);
+                } else if (std.mem.eql(u8, "IPRD", actual)) {
+                    trim_end_zero(&result, chunk.data, .iprd);
+                } else if (std.mem.eql(u8, "ISFT", actual)) {
+                    trim_end_zero(&result, chunk.data, .isft);
+                } else if (std.mem.eql(u8, "ICOP", actual)) {
+                    trim_end_zero(&result, chunk.data, .icop);
+                } else if (std.mem.eql(u8, "ICRD", actual)) {
+                    trim_end_zero(&result, chunk.data, .icrd);
+                } else if (std.mem.eql(u8, "IENG", actual)) {
+                    trim_end_zero(&result, chunk.data, .ieng);
+                } else if (std.mem.eql(u8, "ICMT", actual)) {
+                    trim_end_zero(&result, chunk.data, .icmt);
                 }
             },
         }
@@ -127,9 +129,21 @@ fn parse_ifil(info: *Info, data: []const u8) !void {
     info.ifil = Types.VersionTag.create(major, minor);
 }
 
-fn trim_end_zero(target: *[]u8, data: []const u8) void {
-    const v: []const u8 = std.mem.trimEnd(u8, data, &.{0});
-    target = v;
+const Target = enum { inam, isng, iprd, isft, icop, icrd, ieng, icmt };
+
+fn trim_end_zero(info: *Info, data: []const u8, target: Target) void {
+    var v: []const u8 = std.mem.trimEnd(u8, data, &.{0});
+    var t = switch (target) {
+        .inam => &info.inam,
+        .isng => &info.isng,
+        .iprd => &info.iprd.?,
+        .isft => &info.isft.?,
+        .icop => &info.icop.?,
+        .icrd => &info.icrd.?,
+        .ieng => &info.ieng.?,
+        .icmt => &info.icmt.?,
+    };
+    t = &v;
 }
 
 fn parse_list_sdta_chunks(chunks: []const riff.Chunk) !Samples {
@@ -139,9 +153,9 @@ fn parse_list_sdta_chunks(chunks: []const riff.Chunk) !Samples {
     switch (chunks[0]) {
         .list, .riff => @panic("Unexpected chunk instead of normal chunk"),
         .chunk => |chunk| {
-            const smpl_four_cc = try riff.FourCC.new("smpl");
+            const actual: []const u8 = &chunk.four_cc.inner;
 
-            if (chunk.four_cc == smpl_four_cc) {
+            if (std.mem.eql(u8, "smpl", actual)) {
                 // Zero-copy cast (Requires @alignOf(u16) alignment and native endianness)
                 const samples = std.mem.bytesAsSlice(u16, @alignCast(chunk.data));
                 return samples;
